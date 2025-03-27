@@ -4,12 +4,15 @@ use crate::tests::common::{
     send_messages_in_transaction, count_records, cleanup_test,
     IsolationLevel, create_consumer
 };
-use tokio::time::Duration;
+use std::time::Duration;
 use rdkafka::consumer::Consumer;
+
+use crate::tests::test_utils::{OperationTimer, retry_with_timeout};
 
 /// Tests basic transaction operations
 #[tokio::test]
 async fn test_basic_transaction_operations() {
+    let timer = OperationTimer::new("Basic transaction operations");
     println!("Starting test_basic_transaction_operations");
     let ctx = setup_test("basic-transaction").await;
     let message_count = 5;
@@ -30,6 +33,8 @@ async fn test_basic_transaction_operations() {
 
     println!("Cleaning up test");
     cleanup_test(ctx).await;
+    
+    timer.print_duration();
 }
 
 /// Tests transaction message ordering

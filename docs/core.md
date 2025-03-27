@@ -9,6 +9,7 @@ This document summarizes key learnings and best practices for testing Kafka tran
 /// Tests basic transaction operations
 #[tokio::test]
 async fn test_basic_transaction_operations() {
+    let timer = OperationTimer::new("Basic transaction operations");
     let ctx = setup_test("basic-transaction").await;
     let message_count = 5;
 
@@ -24,6 +25,7 @@ async fn test_basic_transaction_operations() {
     assert_eq!(count, message_count, "Expected {} messages, got {}", message_count, count);
 
     cleanup_test(ctx).await;
+    timer.print_duration();
 }
 ```
 
@@ -39,7 +41,7 @@ Key test scenarios:
 /// Tests transaction isolation with retry logic
 #[tokio::test]
 async fn test_transaction_isolation() {
-    println!("Starting test_transaction_isolation");
+    let timer = OperationTimer::new("Transaction isolation");
     let ctx = setup_test("isolation-test").await;
     
     // Create a separate consumer with read uncommitted isolation
@@ -59,6 +61,7 @@ async fn test_transaction_isolation() {
         }
     }
     // ... rest of the test
+    timer.print_duration();
 }
 ```
 
@@ -71,53 +74,183 @@ Key error scenarios:
 
 ### 3. Performance Tests
 ```rust
-/// Tests transaction performance with different message sizes
+/// Tests concurrent transaction performance
 #[tokio::test]
-async fn test_size_performance() {
-    let ctx = setup_test("size-perf").await;
-    let total_messages = 100;
+async fn test_concurrent_performance() -> Result<(), String> {
+    let timer = OperationTimer::new("Concurrent performance");
+    let ctx = setup_test("concurrent-perf").await;
+    let message_count = 5;
+    let concurrent_transactions = 3;
 
-    let result = send_messages_in_transaction(
-        &ctx.producer,
-        &ctx.topic_name,
-        total_messages,
-        "size",
-    ).await;
-    assert!(result.is_ok());
+    // Send messages concurrently with separate producers
+    let mut handles = Vec::new();
+    for i in 0..concurrent_transactions {
+        let topic = ctx.topic_name.clone();
+        let handle = tokio::spawn(async move {
+            let producer = create_producer(&format!("concurrent-{}", i)).await;
+            let result = retry_with_timeout(
+                || async {
+                    send_messages_in_transaction(
+                        &producer,
+                        &topic,
+                        message_count,
+                        &format!("concurrent-{}", i),
+                    ).await.map_err(|e| e.to_string())
+                },
+                &format!("Transaction {}", i)
+            ).await;
+            result
+        });
+        handles.push(handle);
+    }
 
-    let count = count_records(&ctx.consumer, IsolationLevel::ReadCommitted, Some(total_messages)).await;
-    assert_eq!(count, total_messages);
+    // Wait for all transactions to complete
+    let results = futures::future::join_all(handles).await;
+    for (i, result) in results.into_iter().enumerate() {
+        assert!(result.is_ok(), "Transaction {} failed: {:?}", i, result);
+    }
+
+    cleanup_test(ctx).await;
+    timer.print_duration();
+    Ok(())
 }
 ```
 
 Performance scenarios:
 - Basic performance
-- Message size impact
 - Concurrent transactions
 - Isolation level impact
+- Message size impact
 
 ### 4. Monitoring Tests
 ```rust
-/// Tests monitoring with metrics collection
+/// Tests basic monitoring with timing metrics
 #[tokio::test]
-async fn test_metrics_monitoring() {
-    let ctx = setup_test("metrics-monitoring").await;
-    let total_messages = 100;
+async fn test_basic_monitoring() -> Result<(), String> {
+    let timer = OperationTimer::new("Basic monitoring");
+    let ctx = setup_test("basic-monitoring").await;
+    let message_count = 5;
 
-    let result = send_messages_in_transaction(...).await;
+    // Add basic metrics collection
+    let start_time = Instant::now();
+    let initial_memory = get_memory_usage().await?;
+    
+    let result = send_messages_in_transaction(
+        &ctx.producer,
+        &ctx.topic_name,
+        message_count,
+        "key",
+    ).await;
     assert!(result.is_ok());
 
-    let count = count_records(...).await;
-    assert_eq!(count, total_messages);
+    let duration = start_time.elapsed();
+    let final_memory = get_memory_usage().await?;
+    
+    println!("Transaction completed in {:?}", duration);
+    println!("Memory usage delta: {} KB", final_memory - initial_memory);
+
+    // Verify message delivery
+    let count = count_records(&ctx.consumer, IsolationLevel::ReadCommitted, Some(message_count)).await;
+    assert_eq!(count, message_count);
+
+    cleanup_test(ctx).await;
+    timer.print_duration();
+    Ok(())
 }
 ```
 
-Monitoring scenarios:
-- Basic monitoring
-- Size monitoring
-- Success/failure monitoring
-- Health checks
-- Metrics collection
+Key monitoring scenarios:
+
+1. **Basic Monitoring**
+   - Transaction timing measurements
+   - Success/failure tracking
+   - Message count verification
+   - Example metrics: `Transaction completed in 933ms`
+
+2. **Size-based Monitoring**
+   ```rust
+   let message_sizes = vec![100, 1000, 10000]; // bytes
+   for size in message_sizes {
+       println!("Testing with message size: {} bytes", size);
+       let start_time = Instant::now();
+       
+       // Send messages and measure performance
+       let result = send_messages_in_transaction(...).await;
+       
+       let duration = start_time.elapsed();
+       println!("Transaction completed in {:?} for size {}", duration, size);
+   }
+   ```
+   - Tests different message sizes (100B, 1KB, 10KB)
+   - Measures size impact on performance
+   - Typical results:
+     - 100B: ~1.5s for 100 messages
+     - 1KB: ~650ms for 100 messages
+     - 10KB: ~640ms for 100 messages
+
+3. **Success/Failure Monitoring**
+   ```rust
+   // Test successful transaction
+   let success_result = send_messages_in_transaction(
+       &ctx.producer,
+       &ctx.topic_name,
+       message_count,
+       "success",
+   ).await;
+   assert!(success_result.is_ok());
+
+   // Test failed transaction
+   let failure_result = send_messages_in_transaction(
+       &ctx.producer,
+       "invalid/topic/with/slashes",
+       message_count,
+       "failure",
+   ).await;
+   assert!(failure_result.is_err());
+   ```
+   - Tests both successful and failed scenarios
+   - Verifies error handling
+   - Monitors error types and frequencies
+   - Example error: `KafkaError (Message production error: InvalidTopic)`
+
+4. **Health Monitoring**
+   ```rust
+   // Check producer health
+   assert!(ctx.producer.client().fatal_error().is_none());
+
+   // Send messages with health checks
+   let result = send_messages_in_transaction(...).await;
+   assert!(result.is_ok());
+
+   // Verify consumer health through message count
+   let count = count_records(&ctx.consumer, IsolationLevel::ReadCommitted, Some(message_count)).await;
+   assert_eq!(count, message_count);
+   ```
+   - Producer health verification
+   - Consumer health checks
+   - Fatal error detection
+   - Message delivery confirmation
+
+5. **Metrics Collection**
+   ```rust
+   // Collect pre-transaction metrics
+   let start_time = Instant::now();
+   let start_memory = get_process_memory();
+
+   // Perform transaction
+   let result = send_messages_in_transaction(...).await;
+
+   // Collect post-transaction metrics
+   let duration = start_time.elapsed();
+   let end_memory = get_process_memory();
+
+   println!("Transaction duration: {:?}", duration);
+   println!("Memory usage: {} -> {} KB", start_memory, end_memory);
+   ```
+   - Transaction duration tracking
+   - Memory usage monitoring
+   - Resource utilization metrics
+   - Performance statistics
 
 ## Test Setup Best Practices
 
@@ -245,3 +378,103 @@ Remember to:
 - Handle errors gracefully
 - Add appropriate logging
 - Measure performance impacts 
+
+## Best Practices for Monitoring Tests
+
+1. **Timing Measurements**
+   - Use `Instant::now()` for precise timing
+   - Measure both overall and per-operation durations
+   - Log timing data for analysis
+
+2. **Resource Monitoring**
+   - Track memory usage before and after operations
+   - Monitor system resource utilization
+   - Watch for resource leaks
+
+3. **Error Handling**
+   - Test both success and failure paths
+   - Verify error types and messages
+   - Ensure proper error recovery
+
+4. **Health Checks**
+   - Regular producer/consumer health verification
+   - Fatal error detection
+   - Connection status monitoring
+
+5. **Performance Metrics**
+   - Message size impact analysis
+   - Throughput measurements
+   - Latency tracking
+   - Resource usage patterns
+
+## Monitoring Implementation Tips
+
+1. **Metric Collection**
+   ```rust
+   // Basic timing metric
+   let start = Instant::now();
+   // ... operation ...
+   let duration = start.elapsed();
+
+   // Memory usage
+   let memory = std::process::Command::new("ps")
+       .arg("-o")
+       .arg("rss=")
+       .arg("-p")
+       .arg(std::process::id().to_string())
+       .output()
+       .unwrap();
+   ```
+
+2. **Error Monitoring**
+   ```rust
+   // Check for specific error types
+   match result {
+       Ok(_) => println!("Operation successful"),
+       Err(e) => println!("Error type: {:?}", e),
+   }
+   ```
+
+3. **Health Verification**
+   ```rust
+   // Producer health
+   assert!(producer.client().fatal_error().is_none());
+
+   // Consumer health via message count
+   let count = count_records(&consumer, isolation_level, expected_count).await;
+   assert_eq!(count, expected_count);
+   ```
+
+## Future Monitoring Improvements
+
+1. **Enhanced Metrics**
+   - Detailed transaction state tracking
+   - Per-message timing statistics
+   - Network usage monitoring
+   - Partition distribution analysis
+
+2. **Advanced Health Checks**
+   - Connection pool monitoring
+   - Broker health verification
+   - Consumer group lag tracking
+   - Resource limit monitoring
+
+3. **Performance Analytics**
+   - Historical performance tracking
+   - Trend analysis
+   - Anomaly detection
+   - Performance regression testing
+
+4. **Integration Monitoring**
+   - External system health checks
+   - End-to-end transaction tracking
+   - Cross-service metrics
+   - System-wide health status
+
+Remember to:
+- Keep monitoring non-intrusive
+- Log relevant metrics
+- Track resource usage
+- Monitor both success and failure cases
+- Implement health checks
+- Collect performance data 

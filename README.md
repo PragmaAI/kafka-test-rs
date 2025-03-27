@@ -1,189 +1,191 @@
-# Kafka Transaction Tests
+# Kafka Transaction Testing Suite
 
-This project contains comprehensive tests for Kafka transactions using the `rdkafka` library in Rust. The tests verify various aspects of Kafka transactions including message ordering, transaction boundaries, and recovery scenarios.
+A comprehensive test suite for testing Kafka transactions using the `rdkafka` library in Rust. This project provides a robust set of tests and utilities for verifying transaction behavior, error handling, performance, and monitoring capabilities.
 
 ## Features
 
-- Transaction commit and abort testing
-- Message ordering verification
-- Concurrent transaction handling
-- Multiple topics in single transaction
-- Transaction timeout and fencing
-- Transaction recovery after producer crashes
-- Isolation level testing (read committed vs read uncommitted)
-- Consumer group management
-- Transaction retry logic
-- Message size limits
-- Transaction cleanup and resource management
-- Resource limits testing
-- Performance monitoring and metrics
-- Health checks and observability
+- **Core Functionality Tests**
+  - Basic transaction operations
+  - Message ordering verification
+  - Multi-topic transaction support
+  - Transaction recovery testing
+  - Transaction isolation testing
 
-## Test Structure
+- **Error Handling**
+  - Producer fencing scenarios
+  - Transaction timeout handling
+  - Network failure recovery
+  - Invalid state detection
+  - Edge case testing
 
-The tests are organized into several key components:
+- **Performance Testing**
+  - Concurrent transaction testing
+  - Message size impact analysis
+  - Isolation level performance comparison
+  - Resource usage monitoring
 
-### Test Categories
+- **Monitoring Capabilities**
+  - Transaction timing measurements
+  - Memory usage tracking
+  - Success/failure monitoring
+  - Health checks
+  - Metrics collection
 
-1. **Core Functionality Tests** (`src/tests/core_functionality.rs`)
-   - Basic transaction operations
-   - Message ordering
-   - Multi-topic transactions
-   - Transaction recovery
-   - Transaction isolation
+## Prerequisites
 
-2. **Error Handling Tests** (`src/tests/error_handling.rs`)
-   - Producer fencing
-   - Transaction timeouts
-   - Network failures
-   - Invalid states
-   - Edge cases
+- Rust 1.70 or later
+- Kafka cluster running locally (default: localhost:9092)
+- Docker (optional, for running Kafka in a container)
 
-3. **Performance Tests** (`src/tests/performance.rs`)
-   - Basic performance
-   - Message size impact
-   - Concurrent transactions
-   - Isolation level impact
+## Installation
 
-4. **Monitoring Tests** (`src/tests/monitoring.rs`)
-   - Basic monitoring
-   - Size monitoring
-   - Success/failure monitoring
-   - Health checks
-   - Metrics collection
-
-### Test Context
-```rust
-struct TestContext {
-    topic_name: String,
-    producer: FutureProducer,
-    consumer: StreamConsumer,
-}
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/kafka-tests.git
+cd kafka-tests
 ```
-This struct encapsulates the test resources and provides a consistent way to manage Kafka producers and consumers.
 
-### Helper Functions
-- `setup_test`: Creates test context with a new topic
-- `send_messages_in_transaction`: Manages transaction-aware message sending
-- `count_records`: Verifies message counts with isolation level support
-- `cleanup_test`: Ensures proper resource cleanup
-
-### Test Cases
-
-1. **Transaction Boundaries**
-   - Verifies proper transaction initialization
-   - Tests transaction state management
-   - Ensures proper error handling for invalid operations
-
-2. **Message Ordering**
-   - Verifies messages are received in the correct order
-   - Tests strict ordering within transactions
-   - Validates message content and sequence
-
-3. **Transaction Commit/Abort**
-   - Tests successful transaction commits
-   - Verifies transaction abort behavior
-   - Checks message visibility with different isolation levels
-
-4. **Concurrent Transactions**
-   - Tests multiple transactions running simultaneously
-   - Verifies message consistency across transactions
-   - Checks transaction isolation
-
-5. **Multiple Topics**
-   - Tests transactions spanning multiple topics
-   - Verifies atomicity across topics
-   - Checks message ordering in multi-topic scenarios
-
-6. **Transaction Timeout**
-   - Tests transaction timeout behavior
-   - Verifies producer fencing
-   - Checks message visibility after timeout
-
-7. **Transaction Recovery**
-   - Tests recovery after producer crashes
-   - Verifies transaction state recovery
-   - Checks message consistency after recovery
-
-8. **Transaction Retry Logic**
-   - Tests handling of network failures
-   - Verifies producer recovery after network issues
-   - Checks message consistency during retries
-
-9. **Message Size Limits**
-   - Tests behavior with messages exceeding Kafka limits
-   - Verifies proper handling of large messages
-   - Tests message key size limits
-
-10. **Consumer Group Management**
-    - Tests consumer group behavior with transactions
-    - Verifies proper group coordination
-    - Tests partition assignment and rebalancing
-
-11. **Concurrent Consumers**
-    - Tests multiple consumers with different isolation levels
-    - Verifies proper isolation level behavior
-    - Tests message visibility for different isolation levels
-
-12. **Transaction Cleanup**
-    - Verifies proper cleanup of transaction state
-    - Tests for resource leaks
-    - Validates cleanup after transaction completion
-
-13. **Error Handling**
-    - Tests comprehensive error handling scenarios
-    - Verifies proper error propagation
-    - Tests transaction state error handling
-
-14. **Resource Limits**
-    - Tests message count limits in transactions
-    - Verifies transaction size limits
-    - Tests resource constraints under load
-
-15. **Transaction Metadata**
-    - Tests message metadata handling
-    - Verifies transaction ID tracking
-    - Tests header management
+2. Build the project:
+```bash
+cargo build
+```
 
 ## Running Tests
 
+### Basic Test Execution
+
 ```bash
-# Run all tests
 cargo test
-
-# Run specific test category
-cargo test tests::core_functionality
-cargo test tests::error_handling
-cargo test tests::performance
-cargo test tests::monitoring
-
-# Run specific test with output
-cargo test test_name -- --nocapture
 ```
 
-## Documentation
+### Running Specific Test Categories
 
-- [Core Testing Guide](docs/core.md) - Best practices and patterns for testing Kafka transactions
-- [Use Cases](docs/usecases.md) - Real-world scenarios and testing patterns
-- [Error Handling](docs/error_handling.md) - Comprehensive error handling strategies
-- [Performance Testing](docs/performance.md) - Performance testing guidelines and metrics
+```bash
+# Run core functionality tests
+cargo test core_functionality
 
-## Progress
+# Run error handling tests
+cargo test error_handling
 
-- Completed: 15 tests
-- Pending: 2 tests
-- Total: 17 tests
+# Run performance tests
+cargo test performance
 
-See [todo.md](todo.md) for detailed progress tracking and upcoming test cases.
+# Run monitoring tests
+cargo test monitoring
+```
+
+### Running with Verbose Output
+
+```bash
+cargo test -- --nocapture
+```
+
+## Test Categories
+
+### 1. Core Functionality Tests
+- Basic transaction operations
+- Message ordering verification
+- Multi-topic transaction support
+- Transaction recovery
+- Transaction isolation
+
+### 2. Error Handling Tests
+- Producer fencing scenarios
+- Transaction timeout handling
+- Network failure recovery
+- Invalid state detection
+- Edge case testing
+
+### 3. Performance Tests
+- Concurrent transaction testing
+- Message size impact analysis
+- Isolation level performance comparison
+- Resource usage monitoring
+
+### 4. Monitoring Tests
+- Transaction timing measurements
+- Memory usage tracking
+- Success/failure monitoring
+- Health checks
+- Metrics collection
+
+## Project Structure
+
+```
+kafka-tests/
+├── src/
+│   ├── tests/
+│   │   ├── core_functionality.rs
+│   │   ├── error_handling.rs
+│   │   ├── monitoring.rs
+│   │   ├── performance.rs
+│   │   ├── test_low_producers.rs
+│   │   ├── test_transactions.rs
+│   │   └── test_utils.rs
+│   ├── lib.rs
+│   └── main.rs
+├── docs/
+│   ├── core.md
+│   └── lessons.md
+├── Cargo.toml
+└── README.md
+```
+
+## Configuration
+
+The test suite uses the following default configuration:
+
+```rust
+ClientConfig::new()
+    .set("bootstrap.servers", "localhost:9092")
+    .set("client.id", client_id)
+    .set("transactional.id", format!("transactional-{}", client_id))
+    .set("enable.idempotence", "true")
+    .set("transaction.timeout.ms", "10000")
+    .set("message.timeout.ms", "5000")
+    .set("request.timeout.ms", "5000")
+```
+
+## Best Practices
+
+1. **Test Setup**
+   - Use unique topic names for each test
+   - Implement proper cleanup after tests
+   - Handle producer/consumer lifecycle
+   - Manage transaction state
+
+2. **Error Handling**
+   - Implement retry mechanisms
+   - Handle producer fencing
+   - Verify error types and messages
+   - Ensure proper error recovery
+
+3. **Resource Management**
+   - Clean up resources after tests
+   - Monitor memory usage
+   - Handle timeouts properly
+   - Implement proper shutdown
+
+4. **Performance Testing**
+   - Use concurrent transactions
+   - Measure transaction timing
+   - Monitor resource usage
+   - Track success/failure rates
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch
-3. Add tests for new functionality
-4. Update documentation
-5. Submit a pull request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- [rdkafka](https://github.com/fede1024/rdkafka) - Rust wrapper for librdkafka
+- [librdkafka](https://github.com/confluentinc/librdkafka) - The Apache Kafka C/C++ client library
+- [Kafka](https://kafka.apache.org/) - Distributed streaming platform

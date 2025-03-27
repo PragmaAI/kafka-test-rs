@@ -10,6 +10,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 /// Represents the isolation level for transactions
+#[derive(Debug, Clone, Copy)]
 pub enum IsolationLevel {
     ReadCommitted,
     ReadUncommitted,

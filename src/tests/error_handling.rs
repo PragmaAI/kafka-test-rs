@@ -4,12 +4,15 @@ use crate::tests::common::{
     send_messages_in_transaction, count_records, cleanup_test,
     IsolationLevel, create_consumer
 };
-use tokio::time::Duration;
+use std::time::Duration;
 use rdkafka::consumer::Consumer;
+
+use crate::tests::test_utils::{OperationTimer, retry_with_timeout, handle_transaction_error};
 
 /// Tests basic transaction error scenarios
 #[tokio::test]
 async fn test_basic_error_handling() {
+    let timer = OperationTimer::new("Basic error handling");
     let ctx = setup_test("basic-error").await;
     let message_count = 5;
 
@@ -25,6 +28,8 @@ async fn test_basic_error_handling() {
     assert_eq!(count, message_count, "Expected {} messages, got {}", message_count, count);
 
     cleanup_test(ctx).await;
+    
+    timer.print_duration();
 }
 
 /// Tests error recovery scenarios
